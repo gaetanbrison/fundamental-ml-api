@@ -38,6 +38,22 @@ from htbuilder.units import percent, px
 
 import plotly.express as px
 import streamlit.components.v1 as components
+import streamlit as st
+from pycaret.datasets import get_data
+from pycaret.regression import *
+import time
+import matplotlib.pyplot as plt
+
+import streamlit as st
+from pycaret.regression import *
+from pycaret.datasets import get_data
+import pandas as pd
+import time
+
+
+import time
+import sys
+import io
 
 
 ### The st.title() function sets the title of the Streamlit application
@@ -165,6 +181,9 @@ else:
 
 
 if selected == "💽 01 Data":
+
+    st.markdown("## :violet[Data Exploration 💽]")
+
     num = st.number_input('No. of Rows', 5, 10)
     head = st.radio('View from top (head) or bottom (tail)', ('Head', 'Tail'))
     if head == 'Head':
@@ -189,25 +208,13 @@ if selected == "📊 02 Viz":
     import pandas as pd
     import plotly.express as px
 
-    # Function to load dataset
-    def get_dataset(dataset_name):
-        if dataset_name == "Wine Quality 🍷":
-            df = pd.read_csv("winequality.csv")
-        elif dataset_name == "Titanic 🛳️":
-            df = pd.read_csv("titanic.csv")
-        elif dataset_name == "Student Score 💯":
-            df = pd.read_csv("student_scores.csv")
-        elif dataset_name == "Income 💵":
-            df = pd.read_csv("income.csv")
-        else:
-            df = pd.DataFrame()
-        return dataset_name, df
 
-    st.markdown("# :violet[Visualization 📊]")
+
+    st.markdown("## :violet[Visualization 📊]")
         
     # Select dataset
-    dataset_name = st.sidebar.selectbox('💾 Select Dataset', ["Wine Quality 🍷", "Titanic 🛳️", "Student Score 💯", "Income 💵"])
-    dataset_name, df = get_dataset(dataset_name)
+    #dataset_name = st.sidebar.selectbox('💾 Select Dataset', ["Wine Quality 🍷", "Titanic 🛳️", "Student Score 💯", "Income 💵"])
+    dataset_name, df = get_dataset(select_data)
         
     # Select only numeric columns
     numeric_columns = df.select_dtypes(include=['number']).columns.tolist()
@@ -215,79 +222,182 @@ if selected == "📊 02 Viz":
         
     if len(selected_vars) > 1:
         tab_corr = st.tabs(["Correlation ⛖"])[0]
-            tab_corr.subheader("Correlation Matrix ⛖")
+        tab_corr.subheader("Correlation Matrix ⛖")
             
-            # Compute correlation
-            corr = df[selected_vars].corr()
-            fig = px.imshow(corr.values, x=corr.index, y=corr.columns, labels=dict(color="Correlation"))
-            fig.layout.height = 700
-            fig.layout.width = 700
-            tab_corr.plotly_chart(fig, theme="streamlit", use_container_width=True)
+        # Compute correlation
+        corr = df[selected_vars].corr()
+        fig = px.imshow(corr.values, x=corr.index, y=corr.columns, labels=dict(color="Correlation"))
+        fig.layout.height = 700
+        fig.layout.width = 700
+        tab_corr.plotly_chart(fig, theme="streamlit", use_container_width=True)
 
 
  
 if selected == "⚡️ 03 Pred":
 
-    import streamlit as st
-    from pycaret.datasets import get_data
-    from pycaret.regression import *
-    import time
-    import matplotlib.pyplot as plt
+    st.markdown("## :violet[ Live Model Prediction ⚡️]")
+
 
     import streamlit as st
-    from pycaret.regression import *
-    from pycaret.datasets import get_data
     import pandas as pd
-    import time
+    import numpy as np
+    from sklearn.model_selection import train_test_split
+    from sklearn.preprocessing import StandardScaler, LabelEncoder
+    from sklearn.linear_model import LogisticRegression, LinearRegression
+    from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+    from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, r2_score, mean_absolute_error
+    from pycaret.classification import setup as setup_clf, compare_models as compare_clf, tune_model as tune_clf
+    from pycaret.regression import setup as setup_reg, compare_models as compare_reg, tune_model as tune_reg
 
 
-    import time
-    import sys
-    import io
+    #dataset_choice = st.selectbox("Select Dataset", ["Wine Quality 🍷", "Titanic 🛳️", "Income 💵", "Student Score 💯"])
 
-    st.title("🔍 Live Model Selection 🚀")
+    # Load Dataset
+    def load_data(dataset_choice):
+        if dataset_choice == "Wine Quality 🍷":
+            df = pd.read_csv("wine_quality_red.csv")
+        elif dataset_choice == "Titanic 🛳️":
+            df = sns.load_dataset('titanic').drop(['deck','embark_town','who'], axis=1)
+        elif dataset_choice == "Income 💵":
+            df = pd.read_csv("adult_income.csv")
+        else:
+            df = pd.read_csv("Student_Performance.csv")
+        df = df.dropna()
+        return df
 
-    # Load dataset
-    st.write("### 📥 Loading Dataset...")
-    data = get_data('diamond')
-    st.write(data.head())
+    df = load_data(select_dataset)
+    st.write("### Dataset Preview")
+    st.dataframe(df.head())
 
-    # Initialize PyCaret
-    st.write("### ⚙️ Setting up Preprocessing ...")
-    setup_config = setup(data, target='Price', transform_target=True, session_id=123)
-    st.success("✅ done")
+    # Define Target Variable
+    target_variable = {
+        "Wine Quality 🍷": "quality",
+        "Income 💵": "income",
+        "Student Score 💯": "Performance Index",
+        "Titanic 🛳️": "survived"
+    }
+    target = target_variable[select_dataset]
 
-    # Button to start model selection
-    if st.button("🚀 Find Best Model"):
-        st.write("### 🏆 Comparing Models... Please wait.")
+    # Splitting Data
+    X = df.drop(columns=[target])
+    y = df[target]
 
-        leaderboard_placeholder = st.empty()  # Placeholder for dynamic leaderboard updates
-        progress_bar = st.progress(0)  # Progress bar for model comparison
-        status_text = st.empty()  # Placeholder for live processing logs
+    # Encode categorical variables if needed
+    for col in X.select_dtypes(include=['object']).columns:
+        X[col] = LabelEncoder().fit_transform(X[col])
 
-        # Capture PyCaret's live output
-        old_stdout = sys.stdout
-        sys.stdout = mystdout = io.StringIO()
+    # Train-test split
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-        with st.spinner("Comparing models live... ⏳"):
-            best_model = compare_models(n_select=5)  # Selecting top 5 models
+    # Select Mode
+    mode = st.sidebar.radio("Select Mode", ["Prediction", "Hyperparameter Tuning"])
+    dataset_choice = st.selectbox("Select Dataset", ["Wine Quality 🍷", "Titanic 🛳️", "Income 💵", "Student Score 💯"])
 
-            # Simulate progress updates
-            for i in range(1, 101, 5):  # Update progress in increments
-                time.sleep(0.5)
-                progress_bar.progress(i / 100)  # Update progress bar
-                logs = mystdout.getvalue().split("\n")[-5:]  # Get last 5 log lines
-                status_text.text("\n".join(logs))  # Update live logs
-                
-                leaderboard = pull()  # Get current leaderboard
-                leaderboard_placeholder.dataframe(leaderboard.style.highlight_max(axis=0, subset=["R2", "MSE", "MAE"], color="yellow"))
+    if mode == "Prediction":
+        # Determine task type (classification or regression)
+        is_classification = dataset_choice in ["Wine Quality 🍷", "Titanic 🛳️"]
         
-        sys.stdout = old_stdout  # Restore stdout after capturing logs
+        # Model Selection
+        if is_classification:
+            model_choice = st.sidebar.selectbox("Select Model", ["Logistic Regression", "Random Forest Classifier"])
+            model = LogisticRegression() if model_choice == "Logistic Regression" else RandomForestClassifier()
+        else:
+            model_choice = st.sidebar.selectbox("Select Model", ["Linear Regression", "Random Forest Regressor"])
+            model = LinearRegression() if model_choice == "Linear Regression" else RandomForestRegressor()
+        
+        # Train Model
+        model.fit(X_train, y_train)
+        
+        # Predictions
+        y_pred = model.predict(X_test)
+        
+        # Display Metrics
+        st.write("### Model Performance")
+        if is_classification:
+            accuracy = accuracy_score(y_test, y_pred)
+            f1 = f1_score(y_test, y_pred, average='weighted')
+            precision = precision_score(y_test, y_pred, average='weighted')
+            recall = recall_score(y_test, y_pred, average='weighted')
+            
+            st.write(f"**Accuracy:** {accuracy:.2f}")
+            st.write(f"**F1 Score:** {f1:.2f}")
+            st.write(f"**Precision:** {precision:.2f}")
+            st.write(f"**Recall:** {recall:.2f}")
+        else:
+            r2 = r2_score(y_test, y_pred)
+            mae = mean_absolute_error(y_test, y_pred)
+            
+            st.write(f"**R² Score:** {r2:.2f}")
+            st.write(f"**Mean Absolute Error:** {mae:.2f}")
+        
+        st.success("✅ Prediction completed successfully!")
 
-        st.success("✅ Model comparison complete!")
 
-        # Display the best model found
-        st.write("### 🏅 Best Model Found")
-        st.write(best_model)
+
+    elif mode == "Hyperparameter Tuning":
+
+    
+        st.write("### 🔧 Hyperparameter Tuning with PyCaret")
+        
+        if dataset_choice in ["Wine Quality 🍷", "Titanic 🛳️"]:
+            df2=df.sample(n=500)
+            setup_clf(df2, target=target)
+            st.success("✅ done")
+            best_model = compare_clf()
+            tuned_model = tune_clf(best_model)
+        else:
+            df2 = df.sample(n=500)
+            setup(data=df2, target=target, session_id=123)
+            st.success("✅ Setup Complete!")
+
+            if st.button("🚀 Find Best Model"):
+                st.write("### 🏆 Comparing Models... Please wait.")
+
+                leaderboard_placeholder = st.empty()  # Placeholder for dynamic leaderboard updates
+                progress_bar = st.progress(0)  # Progress bar for model comparison
+                status_text = st.empty()  # Placeholder for live processing logs
+
+                # Capture PyCaret's live output
+                old_stdout = sys.stdout
+                sys.stdout = mystdout = io.StringIO()
+
+                with st.spinner("Comparing models live... ⏳"):
+                    best_models = compare_models(n_select=5)  # Selecting top 5 models
+
+                    # Simulate progress updates
+                    for i in range(1, 101, 5):  # Update progress in increments
+                        time.sleep(0.5)
+                        progress_bar.progress(i / 100)  # Update progress bar
+                        logs = mystdout.getvalue().split("\n")[-5:]  # Get last 5 log lines
+                        status_text.text("\n".join(logs))  # Update live logs
+                        
+                        leaderboard = pull()  # Get current leaderboard
+
+                        def highlight_best(val, col, df):
+                            """Highlight the lowest MSE/MAE and the highest R²"""
+                            if col in ["MSE", "MAE"] and val == df[col].min():
+                                return "background-color: yellow"
+                            elif col == "R2" and val == df[col].max():
+                                return "background-color: yellow"
+                            return ""
+
+                        leaderboard_placeholder.dataframe(
+                            leaderboard.style.apply(lambda col: col.map(lambda val: highlight_best(val, col.name, leaderboard)), axis=0)
+                        )
+
+                sys.stdout = old_stdout  # Restore stdout after capturing logs
+
+                st.success("✅ Model comparison complete!")
+
+                # Display the best model found
+                st.write("### 🏅 Best Model Found")
+                st.write(best_models[0])  # Show the best model
+
+
+
+
+
+
+
 
 
