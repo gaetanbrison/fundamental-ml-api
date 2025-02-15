@@ -136,9 +136,15 @@ def get_dataset(select_dataset):
     return select_dataset, df
 
 
+#DATA_SELECT = {
+#    "Regression": ["Income 💵", "Student Score 💯","Wine Quality 🍷"],
+#    "Classification": ["Wine Quality 🍷","Titanic 🛳️"]
+#}
+
+
 DATA_SELECT = {
-    "Regression": ["Income 💵", "Student Score 💯","Wine Quality 🍷"],
-    "Classification": ["Wine Quality 🍷","Titanic 🛳️"]
+    "Regression": ["Wine Quality 🍷"],
+    "Classification": ["Wine Quality 🍷"]
 }
 
 MODELS = {
@@ -147,9 +153,6 @@ MODELS = {
 }
 target_variable = {
     "Wine Quality 🍷": "quality",
-    "Income 💵": "income",
-    "Student Score 💯":"Performance Index",
-    "Titanic 🛳️": "survived"
 }
 
 
