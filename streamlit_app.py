@@ -98,6 +98,28 @@ selected = option_menu(
 
 
 
+import streamlit as st
+import secrets
+
+# Initialize session state if not present
+if "api_keys" not in st.session_state:
+    st.session_state.api_keys = {}
+
+st.sidebar.header("AWS API Key Generator")
+
+# User inputs their email
+email = st.sidebar.text_input("Enter your email:")
+
+if email:
+    # Check if the email already has an API key
+    if email not in st.session_state.api_keys:
+        st.session_state.api_keys[email] = "AKIA" + secrets.token_hex(16).upper()
+
+    # Display the API key
+    st.sidebar.success(f"Your AWS API Key:\n{st.session_state.api_keys[email]}")
+
+
+
 #load data
 #@st.cache_resource(experimental_allow_widgets=True)
 def get_dataset(select_dataset):
@@ -196,11 +218,33 @@ if selected == "💽 01 Data":
     st.write(df.shape)
 
 
+    st.write("### Describe")
+    st.dataframe(df.describe())
+
     with st.spinner("Cleaning dataset... This will take 3 seconds ⏳"):
         time.sleep(3)  # Simulate processing time
         cleaned_df = df.dropna()
 
     st.success("Cleaning complete! 🧹")
+
+
+
+    import streamlit as st
+
+    # Path to the uploaded HTML report
+    html_file_path = "report.html"
+
+    st.title("HTML Report Viewer")
+
+    # Button to render the HTML file
+    if st.button("Show Report"):
+        with open(html_file_path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+        
+        # Display the HTML content inside an iframe
+        st.components.v1.html(html_content, height=600, scrolling=True)
+
+
 
 if selected == "📊 02 Viz":
 
@@ -333,6 +377,30 @@ if selected == "⚡️ 03 Pred":
         st.success("✅ Prediction completed successfully!")
 
 
+        # Check if X_test is already a DataFrame. If not, convert it.
+        if not isinstance(X_test, pd.DataFrame):
+            # If X_test is a NumPy array or similar, create a DataFrame with default column names.
+            X_test = pd.DataFrame(X_test, columns=[f"Feature_{i}" for i in range(X_test.shape[1])])
+
+        # Create a copy of X_test to avoid modifying the original data.
+        result_df = X_test.copy()
+
+        # Add the predictions as a new column.
+        result_df['Predicted'] = y_pred
+
+        # ------------------------------
+        # Create a download button for the CSV export
+        # ------------------------------
+
+        # Convert the DataFrame to CSV format and encode it to bytes.
+        csv = result_df.to_csv(index=False).encode('utf-8')
+
+        st.download_button(
+            label="Download Predictions CSV",
+            data=csv,
+            file_name='predictions.csv',
+            mime='text/csv'
+        )
 
     elif mode == "Hyperparameter Tuning":
 
