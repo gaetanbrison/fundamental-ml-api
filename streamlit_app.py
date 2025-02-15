@@ -335,7 +335,7 @@ if selected == "⚡️ 03 Pred":
 
     # Select Mode
     mode = st.sidebar.radio("Select Mode", ["Prediction", "Hyperparameter Tuning"])
-    dataset_choice = st.selectbox("Select Dataset", ["Wine Quality 🍷", "Titanic 🛳️", "Income 💵", "Student Score 💯"])
+    dataset_choice = select_data
 
     if mode == "Prediction":
         # Determine task type (classification or regression)
